@@ -13,6 +13,7 @@
     <PackageReference Include="Microsoft.Orleans.Core.Abstractions" Version="9.1.2" />
     <PackageReference Include="Microsoft.Orleans.Server" Version="9.1.2" />
     <PackageReference Include="Microsoft.Orleans.Streaming" Version="9.1.2" />
+    <PackageReference Include="Spectre.Console" Version="0.50.0" />
   </ItemGroup>
 
 </Project>

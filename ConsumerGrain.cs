@@ -1,34 +1,45 @@
-﻿namespace OrleansMissingEvents
+﻿using Microsoft.Extensions.Logging;
+using Spectre.Console;
+
+namespace OrleansMissingEvents
 {
     using Orleans.Runtime;
     using Orleans.Streams;
 
-    internal class ConsumerGrain : Grain, IConsumerGrain
+    internal class ConsumerGrain(StateStore stateStore) : Grain, IConsumerGrain
     {
+        private readonly StateStore stateStore = stateStore;
+
         public async Task ExplicitSubscribe(Guid modelId)
         {
-            var self = this.AsReference<IConsumerGrain>();
 
-            await Task.Run(() =>
-            {
-                self.DoWork();
-            });
-
-            await this.GetStreamProvider("TestStream")
+            var handle = await this.GetStreamProvider("TestStream")
                 .GetStream<int>(StreamId.Create("ns", modelId))
                 .SubscribeAsync(this);
 
-            Console.WriteLine("Subscribe Complete");
-        }
+            AnsiConsole.MarkupLine("Subscribe complete.");
 
-        public async Task DoWork()
-        {
-            await Task.Delay(300);
+            var producer = this.GrainFactory.GetGrain<IProducerGrain>(modelId);
+
+            Task.Run(async () =>
+            {
+                AnsiConsole.MarkupLine("Invoking producer.");
+
+                await producer.MutateStateAsync();
+
+                AnsiConsole.MarkupLine("Producer complete.");
+            });
+
+            AnsiConsole.MarkupLine("Getting state.");
+
+            var state = await stateStore.GetStateAsync(modelId);
+
+            AnsiConsole.MarkupLine("[green]Got initial state as: {0}[/]", state?.ToString() ?? "<none>");
         }
 
         public Task OnNextAsync(int item, StreamSequenceToken? token = null)
         {
-            Console.WriteLine($"Received event: {item}.");
+            AnsiConsole.MarkupLine("[green]Received event: {0}[/]", item);
 
             return Task.CompletedTask;
         }
@@ -40,7 +51,8 @@
 
         public Task OnErrorAsync(Exception ex)
         {
-            Console.WriteLine("Got error");
+            AnsiConsole.MarkupLine("[red]Got error:[/]");
+            AnsiConsole.WriteException(ex);
 
             return Task.CompletedTask;
         }

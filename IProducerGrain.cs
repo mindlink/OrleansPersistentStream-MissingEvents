@@ -2,7 +2,7 @@
 {
     internal interface IProducerGrain : IGrainWithGuidKey
     {
-        Task WakeUpStream();
-        Task EmitEventsAsync();
+        Task WakeUpStreamAsync();
+        Task MutateStateAsync();
     }
 }
