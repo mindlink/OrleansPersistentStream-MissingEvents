@@ -21,7 +21,8 @@
                 siloBuilder
                     .UseLocalhostClustering()
                     .AddMemoryGrainStorage("PubSubStore")
-                    .AddMemoryStreams("TestStream");
+                    .AddMemoryStreams("TestStream")
+                    .AddOutgoingGrainCallFilter<OutgoingGrainCallDelayFilter>();
             });
 
             hostApplicationBuilder.Logging.ClearProviders();
