@@ -3,13 +3,13 @@
     using Orleans.Runtime;
     using Orleans.Streams;
 
-    internal class ConsumerGrain(StateStore stateStore, TestCompletionExaminationService testCompletionExaminationService, Console console) : Grain, IConsumerGrain
+    internal class ConsumerGrain(StateStore stateStore, TestCompletionExaminationService testCompletionExaminationService, CommandLineInterface commandLineInterface) : Grain, IConsumerGrain
     {
         private readonly StateStore stateStore = stateStore;
 
         private readonly TestCompletionExaminationService testCompletionExaminationService = testCompletionExaminationService;
 
-        private readonly Console console = console;
+        private readonly CommandLineInterface commandLineInterface = commandLineInterface;
 
         public async Task RunTestAsync(TestMode testMode, int mutationEventCount)
         {
@@ -24,24 +24,24 @@
                 .GetStream<int>(StreamId.Create("ns", testId))
                 .SubscribeAsync(this);
 
-            console.WriteConsumerLogMessage("Handling completion of subscription by enqueuing producer mutation.");
+            commandLineInterface.WriteConsumerLogMessage("Handling completion of subscription by enqueuing producer mutation.");
 
             var producer = this.GrainFactory.GetGrain<IProducerGrain>(testId);
 
             Task.Run(async () =>
             {
-                console.WriteConsumerLogMessage("Invoking producer mutation for {0} mutation events.", mutationEventCount);
+                commandLineInterface.WriteConsumerLogMessage("Invoking producer mutation for {0} mutation events.", mutationEventCount);
 
                 await producer.MutateStateAsync(mutationEventCount);
             });
 
             if (testMode == TestMode.Fixed)
             {
-                console.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
+                commandLineInterface.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
 
                 this.GrainContext.Scheduler.QueueAction(async _ =>
                     {
-                        console.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
+                        commandLineInterface.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
 
                         await this.GetAndReportInitialState();
                     },
@@ -50,7 +50,7 @@
                 return;
             }
 
-            console.WriteConsumerLogMessage("Getting initial state immediately as test mode is [red]broken[/].");
+            commandLineInterface.WriteConsumerLogMessage("Getting initial state immediately as test mode is [red]broken[/].");
 
             await this.GetAndReportInitialState();
         }
@@ -59,7 +59,7 @@
         {
             var testId = this.GetPrimaryKey();
 
-            console.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
+            commandLineInterface.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
 
             this.testCompletionExaminationService.ReportObservedMutationEvent(testId, item);
 
@@ -73,7 +73,7 @@
 
         public Task OnErrorAsync(Exception exception)
         {
-            console.WriteConsumerErrorMessage("Got error:", exception);
+            commandLineInterface.WriteConsumerErrorMessage("Got error:", exception);
 
             return Task.CompletedTask;
         }
@@ -84,7 +84,7 @@
 
             var state = await stateStore.GetStateAsync(testId);
 
-            console.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
+            commandLineInterface.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
 
             this.testCompletionExaminationService.ReportStateRetrieved(testId, state);
         }
