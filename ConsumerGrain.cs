@@ -44,7 +44,7 @@
 
                 Task.Run(async () =>
                 {
-                    this.commandLineInterface.WriteConsumerLogMessage("Enqueueing getting initial state on new thread.");
+                    this.commandLineInterface.WriteConsumerLogMessage("Beginning getting initial state on new thread by invoking grain reference.");
 
                     await selfGrainReference.FetchInitialStateAfterSubscriptionAsync();
                 });
@@ -68,7 +68,7 @@
         {
             var testId = this.GetPrimaryKey();
 
-            this.commandLineInterface.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
+            this.commandLineInterface.WriteConsumerLogMessage("Handling receival of even '[green]{0}[/]' by reporting to test examiner.", item);
 
             this.testCompletionExaminationService.ReportObservedMutationEvent(testId, item);
 
@@ -93,7 +93,7 @@
 
             var state = await stateStore.GetStateAsync(testId);
 
-            this.commandLineInterface.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
+            this.commandLineInterface.WriteConsumerLogMessage("Handling completion of initial retrieved state as '[green]{0}[/]' by reporting to test examiner.", state?.ToString() ?? "<none>");
 
             this.testCompletionExaminationService.ReportStateRetrieved(testId, state);
         }
