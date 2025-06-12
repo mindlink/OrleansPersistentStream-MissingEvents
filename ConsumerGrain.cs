@@ -39,13 +39,14 @@
             {
                 commandLineInterface.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
 
+                // TODO: is this the correct way of doing this - we should use the IActionInvoker system in practice?
                 this.GrainContext.Scheduler.QueueAction(async _ =>
                     {
                         commandLineInterface.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
 
                         await this.GetAndReportInitialState();
                     },
-                    testId);
+                    null!);
 
                 return;
             }
