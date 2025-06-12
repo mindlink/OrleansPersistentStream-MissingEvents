@@ -37,91 +37,92 @@ We use two helper components:
 ### Expected Output (running in "fixed" mode - i.e. making the consumer yield after subscription and before state retreival):
 ```
 CONSUMER: Handling completion of subscription by enqueuing producer mutation.
-CONSUMER: Enqueuing getting state on next turn as mode is fixed.
+CONSUMER: Enqueuing getting initial state on next turn as test mode is fixed.
 CONSUMER: Invoking producer mutation for 20 mutation events.
-CONSUMER: Beginning getting state.
-PRODUCER: Mutating state from <none>
-PRODUCER: Setting state as 0
-PRODUCER: Publishing mutation event as 0
-PRODUCER: Awaiting after publication of mutation event as 0
-CONSUMER: Handling receival of event: 0 by reporting
-PRODUCER: Setting state as 1
-PRODUCER: Publishing mutation event as 1
-PRODUCER: Awaiting after publication of mutation event as 1
-PRODUCER: Setting state as 2
-PRODUCER: Publishing mutation event as 2
-PRODUCER: Awaiting after publication of mutation event as 2
-CONSUMER: Handling receival of event: 1 by reporting
-CONSUMER: Handling receival of event: 2 by reporting
-PRODUCER: Setting state as 3
-PRODUCER: Publishing mutation event as 3
-PRODUCER: Awaiting after publication of mutation event as 3
-PRODUCER: Setting state as 4
-PRODUCER: Publishing mutation event as 4
-PRODUCER: Awaiting after publication of mutation event as 4
-CONSUMER: Handling receival of event: 3 by reporting
-CONSUMER: Handling receival of event: 4 by reporting
-PRODUCER: Setting state as 5
-PRODUCER: Publishing mutation event as 5
-PRODUCER: Awaiting after publication of mutation event as 5
-PRODUCER: Setting state as 6
-CONSUMER: Handling receival of event: 5 by reporting
-PRODUCER: Publishing mutation event as 6
-PRODUCER: Awaiting after publication of mutation event as 6
-PRODUCER: Setting state as 7
-PRODUCER: Publishing mutation event as 7
-PRODUCER: Awaiting after publication of mutation event as 7
-PRODUCER: Setting state as 8
-PRODUCER: Publishing mutation event as 8
-CONSUMER: Handling receival of event: 6 by reporting
-PRODUCER: Awaiting after publication of mutation event as 8
-CONSUMER: Handling receival of event: 7 by reporting
-CONSUMER: Handling receival of event: 8 by reporting
-PRODUCER: Setting state as 9
-PRODUCER: Publishing mutation event as 9
-PRODUCER: Awaiting after publication of mutation event as 9
-PRODUCER: Setting state as 10
-PRODUCER: Publishing mutation event as 10
-CONSUMER: Handling receival of event: 9 by reporting
-PRODUCER: Awaiting after publication of mutation event as 10
-CONSUMER: Handling receival of event: 10 by reporting
-PRODUCER: Setting state as 11
-PRODUCER: Publishing mutation event as 11
-PRODUCER: Awaiting after publication of mutation event as 11
-PRODUCER: Setting state as 12
-PRODUCER: Publishing mutation event as 12
-CONSUMER: Handling receival of event: 11 by reporting
-PRODUCER: Awaiting after publication of mutation event as 12
-PRODUCER: Setting state as 13
-PRODUCER: Publishing mutation event as 13
-PRODUCER: Awaiting after publication of mutation event as 13
-PRODUCER: Setting state as 14
-CONSUMER: Handling receival of event: 12 by reporting
-PRODUCER: Publishing mutation event as 14
-CONSUMER: Handling receival of event: 13 by reporting
-PRODUCER: Awaiting after publication of mutation event as 14
-PRODUCER: Setting state as 15
-PRODUCER: Publishing mutation event as 15
-PRODUCER: Awaiting after publication of mutation event as 15
-CONSUMER: Handling receival of event: 14 by reporting
-PRODUCER: Setting state as 16
-PRODUCER: Publishing mutation event as 16
-PRODUCER: Awaiting after publication of mutation event as 16
-CONSUMER: Handling receival of event: 15 by reporting
-PRODUCER: Setting state as 17
-PRODUCER: Publishing mutation event as 17
-PRODUCER: Awaiting after publication of mutation event as 17
-CONSUMER: Handling receival of event: 16 by reporting
-CONSUMER: Handling receival of event: 17 by reporting
-PRODUCER: Setting state as 18
-CONSUMER: Reporting initial state as: 8
-PRODUCER: Publishing mutation event as 18
-PRODUCER: Awaiting after publication of mutation event as 18
-PRODUCER: Setting state as 19
-PRODUCER: Publishing mutation event as 19
-PRODUCER: Awaiting after publication of mutation event as 19
-CONSUMER: Handling receival of event: 18 by reporting
-CONSUMER: Handling receival of event: 19 by reporting
+CONSUMER: Enqueueing getting initial state on new thread.
+PRODUCER: Mutating state from <none>.
+CONSUMER: Beginning getting initial state on new turn.
+PRODUCER: Setting state as 0.
+PRODUCER: Publishing mutation event as 0.
+PRODUCER: Awaiting after publication of mutation event as 0.
+PRODUCER: Setting state as 1.
+PRODUCER: Publishing mutation event as 1.
+PRODUCER: Awaiting after publication of mutation event as 1.
+PRODUCER: Setting state as 2.
+PRODUCER: Publishing mutation event as 2.
+PRODUCER: Awaiting after publication of mutation event as 2.
+PRODUCER: Setting state as 3.
+PRODUCER: Publishing mutation event as 3.
+PRODUCER: Awaiting after publication of mutation event as 3.
+PRODUCER: Setting state as 4.
+PRODUCER: Publishing mutation event as 4.
+PRODUCER: Awaiting after publication of mutation event as 4.
+PRODUCER: Setting state as 5.
+PRODUCER: Publishing mutation event as 5.
+PRODUCER: Awaiting after publication of mutation event as 5.
+PRODUCER: Setting state as 6.
+PRODUCER: Publishing mutation event as 6.
+PRODUCER: Awaiting after publication of mutation event as 6.
+PRODUCER: Setting state as 7.
+PRODUCER: Publishing mutation event as 7.
+PRODUCER: Awaiting after publication of mutation event as 7.
+PRODUCER: Setting state as 8.
+PRODUCER: Publishing mutation event as 8.
+PRODUCER: Awaiting after publication of mutation event as 8.
+PRODUCER: Setting state as 9.
+PRODUCER: Publishing mutation event as 9.
+PRODUCER: Awaiting after publication of mutation event as 9.
+PRODUCER: Setting state as 10.
+PRODUCER: Publishing mutation event as 10.
+PRODUCER: Awaiting after publication of mutation event as 10.
+PRODUCER: Setting state as 11.
+PRODUCER: Publishing mutation event as 11.
+PRODUCER: Awaiting after publication of mutation event as 11.
+PRODUCER: Setting state as 12.
+PRODUCER: Publishing mutation event as 12.
+PRODUCER: Awaiting after publication of mutation event as 12.
+PRODUCER: Setting state as 13.
+PRODUCER: Publishing mutation event as 13.
+PRODUCER: Awaiting after publication of mutation event as 13.
+PRODUCER: Setting state as 14.
+PRODUCER: Publishing mutation event as 14.
+PRODUCER: Awaiting after publication of mutation event as 14.
+PRODUCER: Setting state as 15.
+PRODUCER: Publishing mutation event as 15.
+PRODUCER: Awaiting after publication of mutation event as 15.
+PRODUCER: Setting state as 16.
+PRODUCER: Publishing mutation event as 16.
+PRODUCER: Awaiting after publication of mutation event as 16.
+CONSUMER: Reporting initial retrieved state as: 8.
+CONSUMER: Handling receival of event: 0 by reporting.
+CONSUMER: Handling receival of event: 1 by reporting.
+CONSUMER: Handling receival of event: 2 by reporting.
+CONSUMER: Handling receival of event: 3 by reporting.
+CONSUMER: Handling receival of event: 4 by reporting.
+CONSUMER: Handling receival of event: 5 by reporting.
+CONSUMER: Handling receival of event: 6 by reporting.
+CONSUMER: Handling receival of event: 7 by reporting.
+CONSUMER: Handling receival of event: 8 by reporting.
+CONSUMER: Handling receival of event: 9 by reporting.
+CONSUMER: Handling receival of event: 10 by reporting.
+CONSUMER: Handling receival of event: 11 by reporting.
+CONSUMER: Handling receival of event: 12 by reporting.
+CONSUMER: Handling receival of event: 13 by reporting.
+CONSUMER: Handling receival of event: 14 by reporting.
+CONSUMER: Handling receival of event: 15 by reporting.
+PRODUCER: Setting state as 17.
+PRODUCER: Publishing mutation event as 17.
+PRODUCER: Awaiting after publication of mutation event as 17.
+CONSUMER: Handling receival of event: 16 by reporting.
+CONSUMER: Handling receival of event: 17 by reporting.
+PRODUCER: Setting state as 18.
+PRODUCER: Publishing mutation event as 18.
+PRODUCER: Awaiting after publication of mutation event as 18.
+PRODUCER: Setting state as 19.
+PRODUCER: Publishing mutation event as 19.
+PRODUCER: Awaiting after publication of mutation event as 19.
+CONSUMER: Handling receival of event: 18 by reporting.
+CONSUMER: Handling receival of event: 19 by reporting.
 PASS: Test passed as 'Correct effective state '19' was resolved.' with calculated effective state 19 from retrieved
 state 8 and observed events 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19.
 ```
