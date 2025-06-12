@@ -4,6 +4,6 @@
 
     internal interface IConsumerGrain : IGrainWithGuidKey, IAsyncObserver<int>
     {
-        Task ExplicitSubscribe(Guid modelId);
+        Task RunTestAsync(TestMode testMode, int mutationEventCount);
     }
 }

@@ -1,8 +1,7 @@
-﻿using System.Collections.Concurrent;
-
-namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents
 {
     using System;
+    using System.Collections.Concurrent;
     using System.Threading.Tasks;
 
     internal class StateStore
@@ -28,10 +27,12 @@ namespace OrleansMissingEvents
 
         public async Task<int?> GetStateAsync(Guid modelId)
         {
+            // Simulate I/O to the database
             await Task.Delay(500);
 
             var state = this.GetState(modelId);
 
+            // Simulate I/O from database
             await Task.Delay(500);
 
             return state;

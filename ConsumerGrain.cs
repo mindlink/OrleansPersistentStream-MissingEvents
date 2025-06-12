@@ -1,45 +1,67 @@
-﻿using Microsoft.Extensions.Logging;
-using Spectre.Console;
-
-namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents
 {
     using Orleans.Runtime;
     using Orleans.Streams;
 
-    internal class ConsumerGrain(StateStore stateStore) : Grain, IConsumerGrain
+    internal class ConsumerGrain(StateStore stateStore, TestCompletionExaminationService testCompletionExaminationService, Console console) : Grain, IConsumerGrain
     {
         private readonly StateStore stateStore = stateStore;
 
-        public async Task ExplicitSubscribe(Guid modelId)
-        {
+        private readonly TestCompletionExaminationService testCompletionExaminationService = testCompletionExaminationService;
 
-            var handle = await this.GetStreamProvider("TestStream")
-                .GetStream<int>(StreamId.Create("ns", modelId))
+        private readonly Console console = console;
+
+        public async Task RunTestAsync(TestMode testMode, int mutationEventCount)
+        {
+            if (mutationEventCount <= 0)
+            {
+                throw new ArgumentException("Mutation event count value must be greater than zero.", nameof(mutationEventCount));
+            }
+
+            var testId = this.GetPrimaryKey();
+
+            await this.GetStreamProvider("TestStream")
+                .GetStream<int>(StreamId.Create("ns", testId))
                 .SubscribeAsync(this);
 
-            AnsiConsole.MarkupLine("Subscribe complete.");
+            console.WriteConsumerLogMessage("Handling completion of subscription by enqueuing producer mutation.");
 
-            var producer = this.GrainFactory.GetGrain<IProducerGrain>(modelId);
+            var producer = this.GrainFactory.GetGrain<IProducerGrain>(testId);
 
             Task.Run(async () =>
             {
-                AnsiConsole.MarkupLine("Invoking producer.");
+                console.WriteConsumerLogMessage("Invoking producer mutation for {0} mutation events.", mutationEventCount);
 
-                await producer.MutateStateAsync();
-
-                AnsiConsole.MarkupLine("Producer complete.");
+                await producer.MutateStateAsync(mutationEventCount);
             });
 
-            AnsiConsole.MarkupLine("Getting state.");
+            if (testMode == TestMode.Fixed)
+            {
+                console.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
 
-            var state = await stateStore.GetStateAsync(modelId);
+                this.GrainContext.Scheduler.QueueAction(async _ =>
+                    {
+                        console.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
 
-            AnsiConsole.MarkupLine("[green]Got initial state as: {0}[/]", state?.ToString() ?? "<none>");
+                        await this.GetAndReportInitialState();
+                    },
+                    testId);
+
+                return;
+            }
+
+            console.WriteConsumerLogMessage("Getting initial state immediately as test mode is [red]broken[/].");
+
+            await this.GetAndReportInitialState();
         }
 
         public Task OnNextAsync(int item, StreamSequenceToken? token = null)
         {
-            AnsiConsole.MarkupLine("[green]Received event: {0}[/]", item);
+            var testId = this.GetPrimaryKey();
+
+            console.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
+
+            this.testCompletionExaminationService.ReportObservedMutationEvent(testId, item);
 
             return Task.CompletedTask;
         }
@@ -49,12 +71,22 @@ namespace OrleansMissingEvents
             return Task.CompletedTask;
         }
 
-        public Task OnErrorAsync(Exception ex)
+        public Task OnErrorAsync(Exception exception)
         {
-            AnsiConsole.MarkupLine("[red]Got error:[/]");
-            AnsiConsole.WriteException(ex);
+            console.WriteConsumerErrorMessage("Got error:", exception);
 
             return Task.CompletedTask;
+        }
+
+        private async Task GetAndReportInitialState()
+        {
+            var testId = this.GetPrimaryKey();
+
+            var state = await stateStore.GetStateAsync(testId);
+
+            console.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
+
+            this.testCompletionExaminationService.ReportStateRetrieved(testId, state);
         }
     }
 }

@@ -3,6 +3,7 @@
     internal interface IProducerGrain : IGrainWithGuidKey
     {
         Task WakeUpStreamAsync();
-        Task MutateStateAsync();
+
+        Task MutateStateAsync(int mutationEventCount);
     }
 }
