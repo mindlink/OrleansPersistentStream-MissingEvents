@@ -24,34 +24,42 @@
                 .GetStream<int>(StreamId.Create("ns", testId))
                 .SubscribeAsync(this);
 
-            commandLineInterface.WriteConsumerLogMessage("Handling completion of subscription by enqueuing producer mutation.");
+            this.commandLineInterface.WriteConsumerLogMessage("Handling completion of subscription by enqueuing producer mutation.");
 
             var producer = this.GrainFactory.GetGrain<IProducerGrain>(testId);
 
             Task.Run(async () =>
             {
-                commandLineInterface.WriteConsumerLogMessage("Invoking producer mutation for {0} mutation events.", mutationEventCount);
+                this.commandLineInterface.WriteConsumerLogMessage("Invoking producer mutation for {0} mutation events.", mutationEventCount);
 
                 await producer.MutateStateAsync(mutationEventCount);
             });
 
             if (testMode == TestMode.Fixed)
             {
-                commandLineInterface.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
+                this.commandLineInterface.WriteConsumerLogMessage("Enqueuing getting initial state on next turn as test mode is [green]fixed[/].");
 
-                // TODO: is this the correct way of doing this - we should use the IActionInvoker system in practice?
-                this.GrainContext.Scheduler.QueueAction(async _ =>
-                    {
-                        commandLineInterface.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
+                // TODO: should use action invoker mechanism in practice
+                var selfGrainReference = this.AsReference<IConsumerGrain>();
 
-                        await this.GetAndReportInitialState();
-                    },
-                    null!);
+                Task.Run(async () =>
+                {
+                    this.commandLineInterface.WriteConsumerLogMessage("Enqueueing getting initial state on new thread.");
+
+                    await selfGrainReference.FetchInitialStateAfterSubscriptionAsync();
+                });
 
                 return;
             }
 
-            commandLineInterface.WriteConsumerLogMessage("Getting initial state immediately as test mode is [red]broken[/].");
+            this.commandLineInterface.WriteConsumerLogMessage("Getting initial state immediately as test mode is [red]broken[/].");
+
+            await this.GetAndReportInitialState();
+        }
+
+        public async Task FetchInitialStateAfterSubscriptionAsync()
+        {
+            this.commandLineInterface.WriteConsumerLogMessage("Beginning getting initial state on new turn.");
 
             await this.GetAndReportInitialState();
         }
@@ -60,7 +68,7 @@
         {
             var testId = this.GetPrimaryKey();
 
-            commandLineInterface.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
+            this.commandLineInterface.WriteConsumerLogMessage("Handling receival of event: [green]{0}[/] by reporting.", item);
 
             this.testCompletionExaminationService.ReportObservedMutationEvent(testId, item);
 
@@ -74,7 +82,7 @@
 
         public Task OnErrorAsync(Exception exception)
         {
-            commandLineInterface.WriteConsumerErrorMessage("Got error:", exception);
+            this.commandLineInterface.WriteConsumerErrorMessage("Got error:", exception);
 
             return Task.CompletedTask;
         }
@@ -85,7 +93,7 @@
 
             var state = await stateStore.GetStateAsync(testId);
 
-            commandLineInterface.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
+            this.commandLineInterface.WriteConsumerLogMessage("Reporting initial retrieved state as: [green]{0}[/].", state?.ToString() ?? "<none>");
 
             this.testCompletionExaminationService.ReportStateRetrieved(testId, state);
         }
