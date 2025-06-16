@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using System.Collections.Generic;
 

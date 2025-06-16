@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     internal enum TestMode
     {

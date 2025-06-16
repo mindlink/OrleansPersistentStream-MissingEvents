@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using System;
     using System.Collections.Concurrent;
@@ -23,29 +23,29 @@
 
         public void ReportStateRetrieved(Guid testId, int? state)
         {
-            var testCompletionExaminer = this.GetOrCreateTestCompletionExaminer(testId);
+            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
             testCompletionExaminer.ReportStateRetrieved(state);
         }
 
         public void ReportObservedMutationEvent(Guid testId, int mutationEvent)
         {
-            var testCompletionExaminer = this.GetOrCreateTestCompletionExaminer(testId);
+            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
             testCompletionExaminer.ReportObservedMutationEvent(mutationEvent);
         }
 
         public Task<TestResults> AwaitTestCompletion(Guid testId)
         {
-            var testCompletionExaminer = this.GetOrCreateTestCompletionExaminer(testId);
+            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
             return testCompletionExaminer.AwaitTestCompletion();
         }
 
         private TestCompletionExaminer GetOrCreateTestCompletionExaminer(Guid testId)
         {
-            return this.testCompletionExaminersByTestId.GetOrAdd(testId,
-                _ => new TestCompletionExaminer(this.expectedCompletionState));
+            return testCompletionExaminersByTestId.GetOrAdd(testId,
+                _ => new TestCompletionExaminer(expectedCompletionState));
         }
     }
 }

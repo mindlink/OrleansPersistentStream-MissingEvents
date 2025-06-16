@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using Spectre.Console;
     using System;
@@ -7,17 +7,26 @@
 
     internal class CommandLineInterface
     {
+        private bool areProducerAndConsumerMuted = false;
+
         public void Initialize()
         {
             AnsiConsole.Clear();
+        }
+
+        public void SetProducerAndConsumerMuted(bool areProducerAndConsumerMuted)
+        {
+            this.areProducerAndConsumerMuted = areProducerAndConsumerMuted; ;
         }
 
         public async Task<TestAction> PromptForNextTestActionAsync()
         {
             var testActionsByChoice = new Dictionary<string, TestAction>
             {
-                {"[red]Run test as broken[/]", TestAction.RunBroken},
-                {"[green]Run test as fixed[/]", TestAction.RunFixed},
+                {"[red]Run single test as broken[/]", TestAction.RunSingleBrokenTest},
+                {"[green]Run test as fixed[/]", TestAction.RunSingleFixedTest},
+                {"[red]Run en-masse tests as broken[/]", TestAction.RunEnMasseBrokenTests},
+                {"[green]Run en-masse tests as fixed[/]", TestAction.RunEnMasseFixedTests},
                 {"[yellow]Exit[/]", TestAction.Exit}
             };
 
@@ -31,17 +40,33 @@
 
         public void WriteProducerLogMessage(string message, params object[] args)
         {
+            if (this.areProducerAndConsumerMuted)
+            {
+                return;
+            }
+
             AnsiConsole.MarkupLine($"PRODUCER: {message}", args);
         }
 
         public void WriteConsumerLogMessage(string message, params object[] args)
         {
+            if (this.areProducerAndConsumerMuted)
+            {
+                return;
+            }
+
             AnsiConsole.MarkupLine($"[yellow]CONSUMER: {message}[/]", args);
         }
 
-        public void WriteConsumerErrorMessage(string message, Exception exception, params object[] args)
+        public void WriteConsumerErrorMessage(string message, Exception? exception, params object[] args)
         {
             AnsiConsole.MarkupLine($"[red]CONSUMER: {message}[/]", args);
+
+            if (exception == null)
+            {
+                return;
+            }
+
             AnsiConsole.WriteException(exception);
         }
 
@@ -54,6 +79,7 @@
         {
             AnsiConsole.MarkupLine($"[white on red]FAIL: {message}[/]", args);
         }
+
         public void WriteLine()
         {
             AnsiConsole.WriteLine();

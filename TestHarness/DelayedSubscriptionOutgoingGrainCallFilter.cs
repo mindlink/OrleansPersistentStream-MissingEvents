@@ -1,13 +1,12 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
-    /// <summary>
-    /// Does a thing.
-    /// </summary>
-    internal class OutgoingGrainCallDelayFilter : IOutgoingGrainCallFilter
+    internal class DelayedSubscriptionOutgoingGrainCallFilter : IOutgoingGrainCallFilter
     {
         /// <inheritdoc />
         public async Task Invoke(IOutgoingGrainCallContext context)
         {
+            var isStreamingHandshake = context.InterfaceMethod.Name == "GetSequenceToken";
+
             if (context.InterfaceMethod.Name == "GetSequenceToken")
             {
                 await Task.Delay(1000);

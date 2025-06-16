@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using System;
     using System.Collections.Generic;
@@ -32,19 +32,19 @@
                 throw new ArgumentException("State value must be greater than or equal to zero if provided", nameof(state));
             }
 
-            if (state > this.expectedCompletionState)
+            if (state > expectedCompletionState)
             {
-                throw new ArgumentException($"State value must be less than or equal to the expected completion state '{this.expectedCompletionState}' if provided.", nameof(state));
+                throw new ArgumentException($"State value must be less than or equal to the expected completion state '{expectedCompletionState}' if provided.", nameof(state));
             }
 
-            if (this.retrievedState != null)
+            if (retrievedState != null)
             {
-                throw new InvalidOperationException($"State has already been reported as '{this.retrievedState}'.");
+                throw new InvalidOperationException($"State has already been reported as '{retrievedState}'.");
             }
 
-            this.retrievedState = state ?? -1;
+            retrievedState = state ?? -1;
 
-            this.TryDeclareTestCompleted();
+            TryDeclareTestCompleted();
         }
 
         public void ReportObservedMutationEvent(int mutationEvent)
@@ -54,64 +54,64 @@
                 throw new ArgumentException("Mutation event must be greater than or equal to zero", nameof(mutationEvent));
             }
 
-            this.observedMutationEvents.Add(mutationEvent);
+            observedMutationEvents.Add(mutationEvent);
 
-            this.TryDeclareTestCompleted();
+            TryDeclareTestCompleted();
         }
 
         public Task<TestResults> AwaitTestCompletion()
         {
-            return this.testCompletionTaskCompletionSource.Task;
+            return testCompletionTaskCompletionSource.Task;
         }
 
         private void TryDeclareTestCompleted()
         {
             // We should have had all events being received in order.
-            if (this.observedMutationEvents.Select((observedMutationEvent, index) =>
-                    index != 0 && this.observedMutationEvents[index - 1] != observedMutationEvent - 1).Any(v => v))
+            if (observedMutationEvents.Select((observedMutationEvent, index) =>
+                    index != 0 && observedMutationEvents[index - 1] != observedMutationEvent - 1).Any(v => v))
             {
-                this.testCompletionTaskCompletionSource.TrySetResult(
-                    this.CreateTestResults(TestStatus.Fail, "Contiguous mutation events were not observed.", this.retrievedState));
+                testCompletionTaskCompletionSource.TrySetResult(
+                    CreateTestResults(TestStatus.Fail, "Contiguous mutation events were not observed.", retrievedState));
 
                 return;
             }
 
             // If we haven't retrieved state yet then we can't complete.
-            if (this.retrievedState == null)
+            if (retrievedState == null)
             {
                 return;
             }
 
             // Calculate the effective state by applying all observed events incrementally in order since the retrieved state.
-            var effectiveState = this.observedMutationEvents.Aggregate(
-                this.retrievedState,
+            var effectiveState = observedMutationEvents.Aggregate(
+                retrievedState,
                 (currentEffectiveState, observedMutationEvent) => observedMutationEvent == currentEffectiveState + 1
                     ? observedMutationEvent : currentEffectiveState);
 
             // We're done if we're at the expected state
-            if (effectiveState == this.expectedCompletionState)
+            if (effectiveState == expectedCompletionState)
             {
-                this.testCompletionTaskCompletionSource.TrySetResult(
-                    this.CreateTestResults(TestStatus.Pass, $"Correct effective state '{this.expectedCompletionState}' was resolved.", effectiveState));
+                testCompletionTaskCompletionSource.TrySetResult(
+                    CreateTestResults(TestStatus.Pass, $"Correct effective state '{expectedCompletionState}' was resolved.", effectiveState));
 
                 return;
             }
 
             // Something has gone wrong if we've received all events and gotten the state, but the effective state calculation hasn't worked (above).
-            if (this.retrievedState != null &&
-                this.observedMutationEvents.Any() && this.observedMutationEvents.Last() == expectedCompletionState)
+            if (retrievedState != null &&
+                observedMutationEvents.Any() && observedMutationEvents.Last() == expectedCompletionState)
             {
-                this.testCompletionTaskCompletionSource.TrySetResult(
-                    this.CreateTestResults(
+                testCompletionTaskCompletionSource.TrySetResult(
+                    CreateTestResults(
                         TestStatus.Fail,
-                        $"A final state mutation event was received for the expected effective state '{this.expectedCompletionState}' but the actual effective state could not be calculated on top of the existing state.",
-                        this.retrievedState));
+                        $"A final state mutation event was received for the expected effective state '{expectedCompletionState}' but the actual effective state could not be calculated on top of the existing state.",
+                        retrievedState));
             }
         }
 
         private TestResults CreateTestResults(TestStatus testStatus, string description, int? effectiveState)
         {
-            return new TestResults(testStatus, description, effectiveState, this.retrievedState, this.observedMutationEvents);
+            return new TestResults(testStatus, description, effectiveState, retrievedState, observedMutationEvents);
         }
     }
 }

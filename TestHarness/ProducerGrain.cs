@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using Orleans.Runtime;
     using Orleans.Streams;
@@ -13,7 +13,7 @@
 
         public override Task OnActivateAsync(CancellationToken cancellationToken)
         {
-            this.stream = this.GetStreamProvider("TestStream")
+            stream = this.GetStreamProvider("TestStream")
                 .GetStream<int>(StreamId.Create("ns", this.GetPrimaryKey()));
 
             return base.OnActivateAsync(cancellationToken);
@@ -21,7 +21,7 @@
 
         public async Task WakeUpStreamAsync()
         {
-            await this.stream!.OnNextAsync(-1); // Wake up the stream.
+            await stream!.OnNextAsync(-1); // Wake up the stream.
         }
 
         public async Task MutateStateAsync(int mutationEventCount)
@@ -40,19 +40,19 @@
                 throw new InvalidOperationException($"State has already been published for this producer as {state}.");
             }
 
-            this.commandLineInterface.WriteProducerLogMessage("Mutating state from {0}.", state?.ToString() ?? "<none>");
+            commandLineInterface.WriteProducerLogMessage("Mutating state from {0}.", state?.ToString() ?? "<none>");
 
             foreach (var i in Enumerable.Range(0, mutationEventCount))
             {
-                this.commandLineInterface.WriteProducerLogMessage("Setting state as {0}.", i);
+                commandLineInterface.WriteProducerLogMessage("Setting state as {0}.", i);
 
-                await this.stateStore.SetStateAsync(modelId, i);
+                await stateStore.SetStateAsync(modelId, i);
 
-                this.commandLineInterface.WriteProducerLogMessage("Publishing mutation event as {0}.", i);
+                commandLineInterface.WriteProducerLogMessage("Publishing mutation event as {0}.", i);
 
-                await this.stream!.OnNextAsync(i);
+                await stream!.OnNextAsync(i);
 
-                this.commandLineInterface.WriteProducerLogMessage("Awaiting after publication of mutation event as {0}.", i);
+                commandLineInterface.WriteProducerLogMessage("Awaiting after publication of mutation event as {0}.", i);
 
                 await Task.Delay(50);
             }

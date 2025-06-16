@@ -1,4 +1,4 @@
-﻿namespace OrleansMissingEvents
+﻿namespace OrleansMissingEvents.TestHarness
 {
     using System;
     using System.Collections.Concurrent;
@@ -10,14 +10,14 @@
 
         public Task SetStateAsync(Guid modelId, int state)
         {
-            this.eventsByModelId[modelId] = state;
+            eventsByModelId[modelId] = state;
 
             return Task.CompletedTask;
         }
 
         public int? GetState(Guid modelId)
         {
-            if (this.eventsByModelId.TryGetValue(modelId, out var value))
+            if (eventsByModelId.TryGetValue(modelId, out var value))
             {
                 return value;
             }
@@ -30,7 +30,7 @@
             // Simulate I/O to the database
             await Task.Delay(500);
 
-            var state = this.GetState(modelId);
+            var state = GetState(modelId);
 
             // Simulate I/O from database
             await Task.Delay(500);
