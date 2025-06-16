@@ -1,6 +1,6 @@
 ﻿namespace OrleansMissingEvents.ReliableSubscription
 {
-    public sealed class ReliableSubscriptionGrainExtension(IReliableSubscriptionManager reliableSubscriptionManager)
+    internal sealed class ReliableSubscriptionGrainExtension(IReliableSubscriptionManager reliableSubscriptionManager)
         : IReliableSubscriptionGrainExtension
     {
         private readonly IReliableSubscriptionManager reliableSubscriptionManager = reliableSubscriptionManager;

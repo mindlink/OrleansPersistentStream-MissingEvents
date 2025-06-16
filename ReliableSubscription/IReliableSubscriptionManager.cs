@@ -2,7 +2,7 @@
 {
     using Orleans.Streams;
 
-    public interface IReliableSubscriptionManager
+    internal interface IReliableSubscriptionManager
     {
         Task SubscribeReliablyAsync<TItems>(
             IAsyncObservable<TItems> asyncObservable,

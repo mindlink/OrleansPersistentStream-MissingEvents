@@ -2,7 +2,7 @@
 {
     using Orleans.Streams;
 
-    public sealed class ReliableSubscriptionManager : IReliableSubscriptionManager
+    internal sealed class ReliableSubscriptionManager : IReliableSubscriptionManager
     {
         private readonly Dictionary<Guid, ValueTuple<Func<object, Task>, object>>
             subscriptionContinuationDataBySubscriptionHandleId = new Dictionary<Guid, ValueTuple<Func<object, Task>, object>>();

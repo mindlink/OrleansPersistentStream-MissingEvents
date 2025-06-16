@@ -5,8 +5,6 @@
         /// <inheritdoc />
         public async Task Invoke(IOutgoingGrainCallContext context)
         {
-            var isStreamingHandshake = context.InterfaceMethod.Name == "GetSequenceToken";
-
             if (context.InterfaceMethod.Name == "GetSequenceToken")
             {
                 await Task.Delay(1000);

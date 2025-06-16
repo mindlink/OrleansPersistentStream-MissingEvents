@@ -7,7 +7,7 @@
 
     internal class CommandLineInterface
     {
-        private bool areProducerAndConsumerMuted = false;
+        private bool areProducerAndConsumerMuted;
 
         public void Initialize()
         {

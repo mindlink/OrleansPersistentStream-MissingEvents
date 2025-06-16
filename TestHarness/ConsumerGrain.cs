@@ -7,7 +7,7 @@
 
     internal class ConsumerGrain(IReliableSubscriptionManager reliableSubscriptionManager, StateStore stateStore, TestCompletionExaminationService testCompletionExaminationService, CommandLineInterface commandLineInterface) : Grain, IConsumerGrain
     {
-        private IReliableSubscriptionManager reliableSubscriptionManager = reliableSubscriptionManager;
+        private readonly IReliableSubscriptionManager reliableSubscriptionManager = reliableSubscriptionManager;
 
         private readonly StateStore stateStore = stateStore;
 

@@ -1,6 +1,6 @@
 ﻿namespace OrleansMissingEvents.ReliableSubscription
 {
-    public interface IReliableSubscriptionGrainExtension : IGrainExtension
+    internal interface IReliableSubscriptionGrainExtension : IGrainExtension
     {
         Task SignalSubscriptionHandshakeCompletedAsync(Guid subscriptionHandleId);
     }
