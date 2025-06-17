@@ -35,7 +35,7 @@
             testCompletionExaminer.ReportObservedMutationEvent(mutationEvent);
         }
 
-        public Task<TestResults> AwaitTestCompletion(Guid testId)
+        public Task<TestResults> AwaitTestCompletionAsync(Guid testId)
         {
             var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 

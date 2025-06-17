@@ -41,9 +41,10 @@
             hostApplicationBuilder.Services.AddSingleton(commandLineInterface);
 
             var testCompletionExaminerService = new TestCompletionExaminationService(MutationEventCount - 1);
+            hostApplicationBuilder.Services.AddSingleton(testCompletionExaminerService);
 
             hostApplicationBuilder.Services.AddSingleton<StateStore>();
-            hostApplicationBuilder.Services.AddSingleton(testCompletionExaminerService);
+
             hostApplicationBuilder.Services.AddScoped<IReliableSubscriptionManager, ReliableSubscriptionManager>();
 
             var host = hostApplicationBuilder.Build();
@@ -155,11 +156,11 @@
 
             await producerGrain.WakeUpStreamAsync(); // Ensure stream is initialized in PersistentStreamPullingAgent.
 
-            await Task.Delay(InitialStreamSettlingDelayMilliseconds); // Wait for that initial event from the WakeUpStream call to settle.
+            await Task.Delay(InitialStreamSettlingDelayMilliseconds, cancellationToken); // Wait for that initial event from the WakeUpStream call to settle.
 
             await consumerGrain.RunTestAsync(testMode, MutationEventCount);
 
-            return await testCompletionExaminationService.AwaitTestCompletion(testId).WaitAsync(
+            return await testCompletionExaminationService.AwaitTestCompletionAsync(testId).WaitAsync(
                 TimeSpan.FromMilliseconds(MutationEventCount * TimeoutPerEventMilliseconds), cancellationToken);
         }
     }
