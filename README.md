@@ -35,7 +35,7 @@ We use two helper components:
 1. Intercept the grain persistent pulling agent stream subscription, the underlying consumer grain handshake, and the queue cache interactions via grain filters and stream provider decorator injection, respectively.
 2. Observe the stream subscription process via interception and pre-emptively record the stream subscription as pending until it either completes its subscribing process in its entirety, the initial subscribing interaction fails, or the underlying consumer handshake fails.
 3. As events are added to the cache, if there's a current pending stream subscription in progress, create a "pinning" cursor in the cache to ensure the concurrently-received events are not evicted.
-4. When a stream susbcription completes its subscribing process, if a pinning cursor has been created during its lifetime, start the stream subscription from there to replay the concurrently-receieved events
+4. When a stream susbcription completes its subscribing process, if a pinning cursor has been created during its lifetime, start the stream subscription from there to replay the concurrently-receieved events.
 5. Ensure all failure cases clean up any pinning tokens and remove any in-flight data.
 
 ### Solution Pros
@@ -58,7 +58,7 @@ At the core of the solution, a shared mechanism to track pending stream subscrip
 
 On one side of the interception sandwich, we intercept the 'consumer subscription' layer to track subscription lifecycle and activity:
 
-1. `StreamSubscriptionIncomingGrainCallFilter` - Intercepts inbound requests into the `PersistentStreamPullingAgent`, registers the stream subscriber as pending and cleans up on failure to subscribe. This mechanism also sets the invoked parameters on the Orleans request context so downstream interception components are able to resolve them.
+1. `StreamSubscriptionIncomingGrainCallFilter` - Intercepts inbound requests into the `PersistentStreamPullingAgent`, registers the stream subscriber as pending, and cleans up on failure to subscribe. This mechanism also sets the invoked parameters on the Orleans request context so downstream interception components are able to resolve them.
 2. `ConsumerHandshakeOutgoingGrainCallFilter` - Intercepts the consumer handshake and cleans up any residual pending stream subscription data, using parameters flowed from the original stream request.
 
 On the other side of the interception sandwich, we intercept the streaming provider's 'state' layer (the cache) to identify subscription handshakes that have completed and ensure any newly received events are cached whilst current pending subscriptions are in flight:
