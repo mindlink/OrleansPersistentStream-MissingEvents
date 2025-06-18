@@ -41,6 +41,7 @@ We use two helper components:
 ### Solution Pros
 1. No additional grain calls or other I/O latency
 2. Using the native semantics of the caching and stream sequence token mechanisms.
+3. Zero overhead in sunny-day scenarios (no concurrent subscription/event publication).
 
 ### Solution Cons
 1. Requires reflection of the non-public QueueId property from the PersistentStreamPullingAgent.
