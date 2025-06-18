@@ -1,51 +1,50 @@
-﻿namespace OrleansMissingEvents.TestHarness
+﻿namespace OrleansMissingEvents.TestHarness;
+
+using System;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+
+internal class TestCompletionExaminationService
 {
-    using System;
-    using System.Collections.Concurrent;
-    using System.Threading.Tasks;
+    private readonly int expectedCompletionState;
 
-    internal class TestCompletionExaminationService
+    private readonly ConcurrentDictionary<Guid, TestCompletionExaminer> testCompletionExaminersByTestId =
+        new ConcurrentDictionary<Guid, TestCompletionExaminer>();
+
+    public TestCompletionExaminationService(int expectedCompletionState)
     {
-        private readonly int expectedCompletionState;
-
-        private readonly ConcurrentDictionary<Guid, TestCompletionExaminer> testCompletionExaminersByTestId =
-            new ConcurrentDictionary<Guid, TestCompletionExaminer>();
-
-        public TestCompletionExaminationService(int expectedCompletionState)
+        if (expectedCompletionState <= 0)
         {
-            if (expectedCompletionState <= 0)
-            {
-                throw new ArgumentException("Expected completion state must be greater than zero", nameof(expectedCompletionState));
-            }
-
-            this.expectedCompletionState = expectedCompletionState;
+            throw new ArgumentException("Expected completion state must be greater than zero", nameof(expectedCompletionState));
         }
 
-        public void ReportStateRetrieved(Guid testId, int? state)
-        {
-            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
+        this.expectedCompletionState = expectedCompletionState;
+    }
 
-            testCompletionExaminer.ReportStateRetrieved(state);
-        }
+    public void ReportStateRetrieved(Guid testId, int? state)
+    {
+        var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
-        public void ReportObservedMutationEvent(Guid testId, int mutationEvent)
-        {
-            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
+        testCompletionExaminer.ReportStateRetrieved(state);
+    }
 
-            testCompletionExaminer.ReportObservedMutationEvent(mutationEvent);
-        }
+    public void ReportObservedMutationEvent(Guid testId, int mutationEvent)
+    {
+        var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
-        public Task<TestResults> AwaitTestCompletionAsync(Guid testId)
-        {
-            var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
+        testCompletionExaminer.ReportObservedMutationEvent(mutationEvent);
+    }
 
-            return testCompletionExaminer.AwaitTestCompletion();
-        }
+    public Task<TestResults> AwaitTestCompletionAsync(Guid testId)
+    {
+        var testCompletionExaminer = GetOrCreateTestCompletionExaminer(testId);
 
-        private TestCompletionExaminer GetOrCreateTestCompletionExaminer(Guid testId)
-        {
-            return testCompletionExaminersByTestId.GetOrAdd(testId,
-                _ => new TestCompletionExaminer(expectedCompletionState));
-        }
+        return testCompletionExaminer.AwaitTestCompletion();
+    }
+
+    private TestCompletionExaminer GetOrCreateTestCompletionExaminer(Guid testId)
+    {
+        return testCompletionExaminersByTestId.GetOrAdd(testId,
+            _ => new TestCompletionExaminer(expectedCompletionState));
     }
 }

@@ -1,167 +1,170 @@
-﻿namespace OrleansMissingEvents.TestHarness
+﻿namespace OrleansMissingEvents.TestHarness;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using OrleansMissingEvents.ReliableMemoryStreams;
+
+internal static class Program
 {
-    using Microsoft.Extensions.DependencyInjection;
-    using Microsoft.Extensions.Hosting;
-    using Microsoft.Extensions.Logging;
-    using OrleansMissingEvents.ReliableSubscription;
+    private const int EnMasseTestCount = 100;
 
-    internal class Program
+    private const int EnMasseTestProgressBatchSize = 10;
+
+    private const int MutationEventCount = 40;
+
+    private const int InitialStreamSettlingDelayMilliseconds = 1000;
+
+    private const int TimeoutPerEventMilliseconds = 500;
+
+    public static async Task Main()
     {
-        private const int EnMasseTestCount = 100;
+        var commandLineInterface = new CommandLineInterface();
 
-        private const int EnMasseTestProgressBatchSize = 10;
+        commandLineInterface.Initialize();
 
-        private const int MutationEventCount = 40;
+        var hostApplicationBuilder = Host.CreateApplicationBuilder();
 
-        private const int InitialStreamSettlingDelayMilliseconds = 1000;
-
-        private const int TimeoutPerEventMilliseconds = 500;
-
-        static async Task Main()
+        hostApplicationBuilder.UseOrleans(siloBuilder =>
         {
-            var commandLineInterface = new CommandLineInterface();
+            siloBuilder
+                .UseLocalhostClustering()
+                .AddMemoryGrainStorage("PubSubStore")
+                .AddMemoryStreams(StreamProviderNames.NonReliableMemoryStreamsStreamProviderName)
+                .AddReliableMemoryStreams(StreamProviderNames.ReliableMemoryStreamsStreamProviderName)
+                .AddOutgoingGrainCallFilter<DelayedSubscriptionOutgoingGrainCallFilter>();
+        });
 
-            commandLineInterface.Initialize();
+        hostApplicationBuilder.Logging.ClearProviders();
+        hostApplicationBuilder.Logging.AddProvider(new CommandLineInterfaceLoggerProvider(commandLineInterface));
+        hostApplicationBuilder.Logging.AddFilter("*", LogLevel.None);
+        hostApplicationBuilder.Logging.AddFilter("OrleansMissingEvents.*", LogLevel.Debug);
 
-            var hostApplicationBuilder = Host.CreateApplicationBuilder();
+        hostApplicationBuilder.Services.AddSingleton(commandLineInterface);
 
-            hostApplicationBuilder.UseOrleans(siloBuilder =>
+        var testCompletionExaminerService = new TestCompletionExaminationService(MutationEventCount - 1);
+        hostApplicationBuilder.Services.AddSingleton(testCompletionExaminerService);
+
+        hostApplicationBuilder.Services.AddSingleton<StateStore>();
+
+        var host = hostApplicationBuilder.Build();
+
+        await host.StartAsync();
+
+        var grainFactory = host.Services.GetRequiredService<IGrainFactory>();
+
+        NextTestAction nextTestAction;
+
+        while ((nextTestAction = await commandLineInterface.PromptForNextTestActionAsync()) != NextTestAction.Exit)
+        {
+            var testMode = nextTestAction is NextTestAction.RunSingleBrokenTest or NextTestAction.RunEnMasseBrokenTests
+                ? TestMode.Broken : TestMode.Fixed;
+
+            var isEnMasseTest =
+                nextTestAction is NextTestAction.RunEnMasseBrokenTests or NextTestAction.RunEnMasseFixedTests;
+
+            commandLineInterface.SetBackgroundLogsMuted(isEnMasseTest);
+
+            var numberOfTests = isEnMasseTest ? EnMasseTestCount : 1;
+
+            var cancellationTokenSource = new CancellationTokenSource();
+
+            var pendingTestTasks = Enumerable.Range(0, numberOfTests).Select(_ =>
+                    RunTestAsync(testMode, grainFactory, testCompletionExaminerService,
+                        cancellationTokenSource.Token))
+                .ToList();
+
+            while (pendingTestTasks.Any())
             {
-                siloBuilder
-                    .UseLocalhostClustering()
-                    .AddMemoryGrainStorage("PubSubStore")
-                    .AddMemoryStreams("TestStream")
-                    .AddOutgoingGrainCallFilter<ReliableSubscriptionOutgoingGrainCallFilter>()
-                    .AddGrainExtension<IReliableSubscriptionGrainExtension, ReliableSubscriptionGrainExtension>()
-                    .AddOutgoingGrainCallFilter<DelayedSubscriptionOutgoingGrainCallFilter>();
-            });
+                var completedTestTask = await Task.WhenAny(pendingTestTasks);
 
-            hostApplicationBuilder.Logging.ClearProviders();
-
-            hostApplicationBuilder.Services.AddSingleton(commandLineInterface);
-
-            var testCompletionExaminerService = new TestCompletionExaminationService(MutationEventCount - 1);
-            hostApplicationBuilder.Services.AddSingleton(testCompletionExaminerService);
-
-            hostApplicationBuilder.Services.AddSingleton<StateStore>();
-
-            hostApplicationBuilder.Services.AddScoped<IReliableSubscriptionManager, ReliableSubscriptionManager>();
-
-            var host = hostApplicationBuilder.Build();
-
-            await host.StartAsync();
-
-            var grainFactory = host.Services.GetRequiredService<IGrainFactory>();
-
-            TestAction nextTestAction;
-
-            while ((nextTestAction = await commandLineInterface.PromptForNextTestActionAsync()) != TestAction.Exit)
-            {
-                var testMode = nextTestAction is TestAction.RunSingleBrokenTest or TestAction.RunEnMasseBrokenTests
-                    ? TestMode.Broken : TestMode.Fixed;
-
-                var isEnMasseTest =
-                    nextTestAction is TestAction.RunEnMasseBrokenTests or TestAction.RunEnMasseFixedTests;
-
-                commandLineInterface.SetProducerAndConsumerMuted(isEnMasseTest);
-
-                var numberOfTests = isEnMasseTest ? EnMasseTestCount : 1;
-
-                var cancellationTokenSource = new CancellationTokenSource();
-
-                var pendingTestTasks = Enumerable.Range(0, numberOfTests).Select(i =>
-                        RunTestAsync(testMode, grainFactory, testCompletionExaminerService,
-                            cancellationTokenSource.Token))
-                    .ToList();
-
-                while (pendingTestTasks.Any())
+                if (completedTestTask.IsFaulted)
                 {
-                    var completedTestTask = await Task.WhenAny(pendingTestTasks);
+                    commandLineInterface.WriteTestFailMessage(
+                        "A test failed as the operation timed out.");
 
-                    if (completedTestTask.IsFaulted)
+                    cancellationTokenSource.Cancel();
+                    break;
+                }
+
+                pendingTestTasks.Remove(completedTestTask);
+
+                var testResults = completedTestTask.Result;
+
+                if (testResults.TestStatus == TestStatus.Fail)
+                {
+                    commandLineInterface.WriteTestFailMessage(
+                        "Test failed as '{0}' with calculated effective state {1}, retrieved state {2}, and observed events {3}.",
+                        testResults.Description,
+                        testResults.EffectiveState?.ToString() ?? "<none>",
+                        testResults.RetrievedState?.ToString() ?? "<none>",
+                        string.Join(", ", testResults.ObservedEvents));
+
+                    cancellationTokenSource.Cancel();
+                    break;
+                }
+
+                if (!pendingTestTasks.Any())
+                {
+                    if (numberOfTests == 1)
                     {
-                        commandLineInterface.WriteTestFailMessage(
-                            "A test failed as the operation timed out.");
-
-                        cancellationTokenSource.Cancel();
-                        break;
-                    }
-
-                    pendingTestTasks.Remove(completedTestTask);
-
-                    var testResults = completedTestTask.Result;
-
-                    if (testResults.TestStatus == TestStatus.Fail)
-                    {
-                        commandLineInterface.WriteTestFailMessage(
-                            "Test failed as '{0}' with calculated effective state {1}, retrieved state {2}, and observed events {3}.",
+                        commandLineInterface.WriteTestPassMessage(
+                            "Test passed as '{0}' with calculated effective state {1} from retrieved state {2} and observed events {3}.",
                             testResults.Description,
                             testResults.EffectiveState?.ToString() ?? "<none>",
                             testResults.RetrievedState?.ToString() ?? "<none>",
                             string.Join(", ", testResults.ObservedEvents));
-
-                        cancellationTokenSource.Cancel();
-                        break;
                     }
-
-                    if (!pendingTestTasks.Any())
-                    {
-                        if (numberOfTests == 1)
-                        {
-                            commandLineInterface.WriteTestPassMessage(
-                                "Test passed as '{0}' with calculated effective state {1} from retrieved state {2} and observed events {3}.",
-                                testResults.Description,
-                                testResults.EffectiveState?.ToString() ?? "<none>",
-                                testResults.RetrievedState?.ToString() ?? "<none>",
-                                string.Join(", ", testResults.ObservedEvents));
-                        }
-                        else
-                        {
-                            commandLineInterface.WriteTestPassMessage(
-                                "All '{0}' tests have passed. The last test passed as '{1}' with calculated effective state {2} from retrieved state {3} and observed events {4}.",
-                                numberOfTests,
-                                testResults.Description,
-                                testResults.EffectiveState?.ToString() ?? "<none>",
-                                testResults.RetrievedState?.ToString() ?? "<none>",
-                                string.Join(", ", testResults.ObservedEvents));
-                        }
-
-                        break;
-                    }
-
-                    if (pendingTestTasks.Count % EnMasseTestProgressBatchSize == 0)
+                    else
                     {
                         commandLineInterface.WriteTestPassMessage(
-                            "Test '{0}' of '{1}' has passed as '{2}' with calculated effective state {3} from retrieved state {4} and observed events {5}.",
-                            numberOfTests - pendingTestTasks.Count,
+                            "All '{0}' tests have passed. The last test passed as '{1}' with calculated effective state {2} from retrieved state {3} and observed events {4}.",
                             numberOfTests,
                             testResults.Description,
                             testResults.EffectiveState?.ToString() ?? "<none>",
                             testResults.RetrievedState?.ToString() ?? "<none>",
                             string.Join(", ", testResults.ObservedEvents));
                     }
+
+                    break;
                 }
 
-                commandLineInterface.WriteLine();
+                if (pendingTestTasks.Count % EnMasseTestProgressBatchSize == 0)
+                {
+                    commandLineInterface.WriteTestPassMessage(
+                        "Test '{0}' of '{1}' has passed as '{2}' with calculated effective state {3} from retrieved state {4} and observed events {5}.",
+                        numberOfTests - pendingTestTasks.Count,
+                        numberOfTests,
+                        testResults.Description,
+                        testResults.EffectiveState?.ToString() ?? "<none>",
+                        testResults.RetrievedState?.ToString() ?? "<none>",
+                        string.Join(", ", testResults.ObservedEvents));
+                }
             }
+
+            commandLineInterface.WriteLine();
         }
+    }
 
-        private static async Task<TestResults> RunTestAsync(
-            TestMode testMode, IGrainFactory grainFactory, TestCompletionExaminationService testCompletionExaminationService, CancellationToken cancellationToken)
-        {
-            var testId = Guid.NewGuid();
+    private static async Task<TestResults> RunTestAsync(
+        TestMode testMode, IGrainFactory grainFactory, TestCompletionExaminationService testCompletionExaminationService, CancellationToken cancellationToken)
+    {
+        var testId = Guid.NewGuid();
 
-            var producerGrain = grainFactory.GetGrain<IProducerGrain>(testId);
-            var consumerGrain = grainFactory.GetGrain<IConsumerGrain>(testId);
+        var producerGrain = grainFactory.GetGrain<IProducerGrain>(testId);
+        var consumerGrain = grainFactory.GetGrain<IConsumerGrain>(testId);
 
-            await producerGrain.WakeUpStreamAsync(); // Ensure stream is initialized in PersistentStreamPullingAgent.
+        var streamProviderName = testMode == TestMode.Broken
+            ? StreamProviderNames.NonReliableMemoryStreamsStreamProviderName
+            : StreamProviderNames.ReliableMemoryStreamsStreamProviderName;
 
-            await Task.Delay(InitialStreamSettlingDelayMilliseconds, cancellationToken); // Wait for that initial event from the WakeUpStream call to settle.
+        await producerGrain.WakeUpStreamAsync(streamProviderName); // Ensure stream is initialized in PersistentStreamPullingAgent.
 
-            await consumerGrain.RunTestAsync(testMode, MutationEventCount);
+        await Task.Delay(InitialStreamSettlingDelayMilliseconds, cancellationToken); // Wait for that initial event from the WakeUpStream call to settle.
 
-            return await testCompletionExaminationService.AwaitTestCompletionAsync(testId).WaitAsync(
-                TimeSpan.FromMilliseconds(MutationEventCount * TimeoutPerEventMilliseconds), cancellationToken);
-        }
+        await consumerGrain.RunTestAsync(streamProviderName, MutationEventCount);
+
+        return await testCompletionExaminationService.AwaitTestCompletionAsync(testId).WaitAsync(
+            TimeSpan.FromMilliseconds(MutationEventCount * TimeoutPerEventMilliseconds), cancellationToken);
     }
 }

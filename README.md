@@ -16,13 +16,6 @@ This is problematic in our case because our real Consumer grains fetch the versi
 
 We've used MemoryStreams here to show the issue, but in our actual code we've written a custom stream provider which uses a SimpleQueueCache. It's not rewindable so we don't use Consumer stream tokens on Subscribe at all.
 
-## Suggested fix
-Intercept the grain call to perform the handshake between the PersistentStreamPullingAgent and the consumer. As the call completes, enqueue a job on the PersistentStreamPullingAgent scheduling queue to notify the consumer that the handshake has completed.
-
-This works because:
-1) The scheduled job will run after the current PersistentStreamPullingAgent turn has completed (i.e. after the handshake grain call has returned and been processed)
-2) The notification to the consumer grain will be run on the consumer's turn queue, and can be used to perform any necessary continuation logic.
-
 ## Repro
 This project uses two grains to re-create the race condition described above:
 
@@ -38,11 +31,37 @@ We use two helper components:
 1. `StateStore` - Simulates a persistent store that has an async I/O delay when the consumer performs the initial fetch.
 2. `TestCompletionExaminationService` -- Records state and events seen by the consumer and computes the correct "effective" state, given the retrieved state and the observed events, declaring the test as completed when the consumer has observed all expected mutations.
 
-We also offer an implementation for the fix, including:
+## Suggested fix
+1. Intercept the grain persistent pulling agent stream subscription, the underlying consumer grain handshake, and the queue cache interactions via grain filters and stream provider decorator injection, respectively.
+2. Observe the stream subscription process via interception and pre-emptively record the stream subscription as pending until it either succeeds in its entirety, the initial subscription fails, or the consumer handshake fails.
+3. As events are added to the cache, if there's a current pending stream subscription, create a "pinning" cursor in the cache to ensure the concurrently-received events are not evicted.
+4. When the stream susbcription completes, if a pinning cursor has been created, start the stream subscription from there to replay the concurrently-receieved events
+5. Ensure all failure cases clean up any pinning tokens and remove any in-flight data.
 
-1. `ReliableSubscriptionGrainExtension` - A grain extension to expose the additional step in the subscription handshake.
-1. `ReliableSubscriptionManager` - A stateful class to coordinate subscription and continuation.
-1. `ReliableSubscriptionOutgoingGrainCallFilter` - A grain filter to intercept the vanilla handshake and queue an additional call to the consumer grain.
+### Solution Pros
+1. No additional grain calls or other I/O latency
+2. Using the native semantics of the caching and stream sequence token mechanisms.
+
+### Solution Cons
+1. Requires reflection of the non-public QueueId property from the PersistentStreamPullingAgent.
+2. Makes non-contractual implicit assumptions about the scheduling and call-stack model of the stream provider implementation.
+> *How likely are these to change, and what options do we have if they do?*
+
+## Fix Implemenation
+At the core, a mechanism to track pending stream subscriptions:
+
+1. `PendingStreamSubscriptionsManager` - Tracks pending stream subscriptions for a stream on a given queue. Designed to be hosted in-memory alongside a corresponding `PersistentStreamPullingAgent`.
+2. `PendingStreamSubscriptionsCoordinationService` - A service that allows the per-queue stream subscription managers to be retrieved globally for the local silo.
+
+We intercept the streaming provider layer to track pending stream subscriptions:
+
+1. `StreamSubscriptionIncomingGrainCallFilter` - Intercepts inbound requests into the `PersistentStreamPullingAgent`, registers the stream subscriber as pending and cleans up on failure. This mechanism also sets the invoked parameters on the Orleans request context so downstream interception components are able to resolve them.
+2. `ConsumerHandshakeOutgoingGrainCallFilter` - Intercepts the consumer handshake and cleans up any residual pending stream subscription data, using parameters flowed from the original stream request.
+
+We intercept the streaming provider to declare subscription completion and ensure events are cached:
+1. . `ReliableStreamsQueueCache` - Wraps an underlying queue cache, notifying when events are received (in case pending subscriptions are in flight), and treating cursor requests as confirmation of stream subscription completion using parameters flowed from the initial stream subscription invocation.
+2. . `ReliableStreamsQueueAdaptorCache` - Plugs in to the stream provider mechanism and creates the intercepting cache per-queue.
+3. . `ReliableStreamsQueueAdaptorFactory` - Plugs in to the stream provider mechanism to create the overall intercepting components.
 
 ### Expected Output (running in "fixed" mode - i.e. making the consumer yield after subscription and before state retreival):
 ```

@@ -1,9 +1,8 @@
-﻿namespace OrleansMissingEvents.TestHarness
-{
-    internal interface IProducerGrain : IGrainWithGuidKey
-    {
-        Task WakeUpStreamAsync();
+﻿namespace OrleansMissingEvents.TestHarness;
 
-        Task MutateStateAsync(int mutationEventCount);
-    }
+internal interface IProducerGrain : IGrainWithGuidKey
+{
+    Task WakeUpStreamAsync(string streamProviderName);
+
+    Task MutateStateAsync(int mutationEventCount);
 }

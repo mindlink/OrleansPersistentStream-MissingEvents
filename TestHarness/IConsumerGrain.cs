@@ -1,9 +1,8 @@
-﻿namespace OrleansMissingEvents.TestHarness
-{
-    using Orleans.Streams;
+﻿namespace OrleansMissingEvents.TestHarness;
 
-    internal interface IConsumerGrain : IGrainWithGuidKey, IAsyncObserver<int>
-    {
-        Task RunTestAsync(TestMode testMode, int mutationEventCount);
-    }
+using Orleans.Streams;
+
+internal interface IConsumerGrain : IGrainWithGuidKey, IAsyncObserver<int>
+{
+    Task RunTestAsync(string streamProviderName, int mutationEventCount);
 }

@@ -1,61 +1,55 @@
-﻿namespace OrleansMissingEvents.TestHarness
+﻿namespace OrleansMissingEvents.TestHarness;
+
+using Orleans.Runtime;
+using Orleans.Streams;
+
+internal class ProducerGrain(StateStore stateStore, CommandLineInterface commandLineInterface) : Grain, IProducerGrain
 {
-    using Orleans.Runtime;
-    using Orleans.Streams;
+    private readonly CommandLineInterface commandLineInterface = commandLineInterface;
 
-    internal class ProducerGrain(StateStore stateStore, CommandLineInterface commandLineInterface) : Grain, IProducerGrain
+    private readonly StateStore stateStore = stateStore;
+
+    private IAsyncStream<int>? stream;
+
+    public async Task WakeUpStreamAsync(string streamProviderName)
     {
-        private readonly CommandLineInterface commandLineInterface = commandLineInterface;
+        stream = this.GetStreamProvider(streamProviderName)
+            .GetStream<int>(StreamId.Create("ns", this.GetPrimaryKey()));
 
-        private readonly StateStore stateStore = stateStore;
+        await stream!.OnNextAsync(-1); // Wake up the stream.
+    }
 
-        private IAsyncStream<int>? stream;
-
-        public override Task OnActivateAsync(CancellationToken cancellationToken)
+    public async Task MutateStateAsync(int mutationEventCount)
+    {
+        if (mutationEventCount <= 0)
         {
-            stream = this.GetStreamProvider("TestStream")
-                .GetStream<int>(StreamId.Create("ns", this.GetPrimaryKey()));
-
-            return base.OnActivateAsync(cancellationToken);
+            throw new ArgumentException("Mutation event count value must be greater than zero.", nameof(mutationEventCount));
         }
 
-        public async Task WakeUpStreamAsync()
+        var modelId = this.GetPrimaryKey();
+
+        var state = stateStore.GetState(modelId);
+
+        if (state != null)
         {
-            await stream!.OnNextAsync(-1); // Wake up the stream.
+            throw new InvalidOperationException($"State has already been published for this producer as {state}.");
         }
 
-        public async Task MutateStateAsync(int mutationEventCount)
+        commandLineInterface.WriteProducerLogMessage("Mutating state from {0}.", state?.ToString() ?? "<none>");
+
+        foreach (var i in Enumerable.Range(0, mutationEventCount))
         {
-            if (mutationEventCount <= 0)
-            {
-                throw new ArgumentException("Mutation event count value must be greater than zero.", nameof(mutationEventCount));
-            }
+            commandLineInterface.WriteProducerLogMessage("Setting state as {0}.", i);
 
-            var modelId = this.GetPrimaryKey();
+            await stateStore.SetStateAsync(modelId, i);
 
-            var state = stateStore.GetState(modelId);
+            commandLineInterface.WriteProducerLogMessage("Publishing mutation event as {0}.", i);
 
-            if (state != null)
-            {
-                throw new InvalidOperationException($"State has already been published for this producer as {state}.");
-            }
+            await stream!.OnNextAsync(i);
 
-            commandLineInterface.WriteProducerLogMessage("Mutating state from {0}.", state?.ToString() ?? "<none>");
+            commandLineInterface.WriteProducerLogMessage("Awaiting after publication of mutation event as {0}.", i);
 
-            foreach (var i in Enumerable.Range(0, mutationEventCount))
-            {
-                commandLineInterface.WriteProducerLogMessage("Setting state as {0}.", i);
-
-                await stateStore.SetStateAsync(modelId, i);
-
-                commandLineInterface.WriteProducerLogMessage("Publishing mutation event as {0}.", i);
-
-                await stream!.OnNextAsync(i);
-
-                commandLineInterface.WriteProducerLogMessage("Awaiting after publication of mutation event as {0}.", i);
-
-                await Task.Delay(50);
-            }
+            await Task.Delay(50);
         }
     }
 }

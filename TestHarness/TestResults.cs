@@ -1,8 +1,5 @@
-﻿namespace OrleansMissingEvents.TestHarness
-{
-    using System.Collections.Generic;
+﻿namespace OrleansMissingEvents.TestHarness;
 
-    internal record TestResults(TestStatus TestStatus, string Description, int? EffectiveState, int? RetrievedState, IEnumerable<int> ObservedEvents)
-    {
-    }
-}
+using System.Collections.Generic;
+
+internal record TestResults(TestStatus TestStatus, string Description, int? EffectiveState, int? RetrievedState, IEnumerable<int> ObservedEvents);

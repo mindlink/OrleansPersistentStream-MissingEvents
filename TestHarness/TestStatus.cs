@@ -1,9 +1,8 @@
-﻿namespace OrleansMissingEvents.TestHarness
-{
-    internal enum TestStatus
-    {
-        Pass,
+﻿namespace OrleansMissingEvents.TestHarness;
 
-        Fail
-    }
+internal enum TestStatus
+{
+    Pass,
+
+    Fail
 }

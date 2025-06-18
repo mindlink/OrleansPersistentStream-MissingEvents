@@ -1,9 +1,8 @@
-﻿namespace OrleansMissingEvents.TestHarness
-{
-    internal enum TestMode
-    {
-        Broken,
+﻿namespace OrleansMissingEvents.TestHarness;
 
-        Fixed
-    }
+internal enum TestMode
+{
+    Broken,
+
+    Fixed
 }
