@@ -39,7 +39,7 @@ We use two helper components:
 5. Ensure all failure cases clean up any pinning tokens and remove any in-flight data.
 
 ### Solution Pros
-1. No additional grain calls or other I/O latency
+1. No additional grain calls or other I/O latency.
 2. Using the native semantics of the caching and stream sequence token mechanisms.
 3. Zero overhead in sunny-day scenarios (no concurrent subscription/event publication).
 
