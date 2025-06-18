@@ -35,7 +35,7 @@ internal sealed class ConsumerHandshakeOutgoingGrainCallFilter(
                 logger.LogWarning(
                     "Failed to handle stream consumer handshake exception as the queue ID could not be retrieved.");
 
-                return;
+                throw;
             }
 
             var streamSubscriptionData = StreamSubscriptionParameterFlowHelper.GetFlowedStreamSubscriptionParameters();
@@ -45,7 +45,7 @@ internal sealed class ConsumerHandshakeOutgoingGrainCallFilter(
                 logger.LogWarning(
                     "Failed to handle stream consumer handshake exception as no flowed subscription parameters could be retrieved.");
 
-                return;
+                throw;
             }
 
             var pendingStreamSubscriptionsManager = this.pendingStreamSubscriptionsStorageService.GetPendingStreamSubscriptionsManagerForQueue(queueId);
