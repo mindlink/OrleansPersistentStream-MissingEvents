@@ -29,7 +29,7 @@ We use a grain filter to simulate delayed calls between PersistentStreamPullingA
 We use two helper components:
 
 1. `StateStore` - Simulates a persistent store that has an async I/O delay when the consumer performs the initial fetch.
-2. `TestCompletionExaminationService` -- Records state and events seen by the consumer and computes the correct "effective" state, given the retrieved state and the observed events, declaring the test as completed when the consumer has observed all expected mutations.
+2. `TestCompletionExaminationService` - Records state and events seen by the consumer and computes the correct "effective" state, given the retrieved state and the observed events, declaring the test as completed when the consumer has observed all expected mutations.
 
 ## Suggested fix
 1. Intercept the grain persistent pulling agent stream subscription, the underlying consumer grain handshake, and the queue cache interactions via grain filters and stream provider decorator injection, respectively.
