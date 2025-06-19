@@ -20,7 +20,7 @@ We've used MemoryStreams here to show the issue, but in our actual code we've wr
 This project uses two grains to re-create the race condition described above:
 
 1. `ProducerGrain` - incrementally mutates its "state" by storing the new state in a persistent `StateStore` and then publishing an event representing the state change.
-2. `ConsumerGrain` - trie to monitor changes to the producers state by subscribing to the producers mutation event stream, fetching the current state from the event store, and then applying future mutation events on top of the state.
+2. `ConsumerGrain` - tries to monitor changes to the producers state by subscribing to the producers mutation event stream, fetching the current state from the event store, and then applying future mutation events on top of the state.
 
 We use a grain filter to simulate delayed calls between PersistentStreamPullingAgent and consumers:
 
@@ -33,15 +33,17 @@ We use two helper components:
 
 ## Suggested fix
 1. Intercept the grain persistent pulling agent stream subscription, the underlying consumer grain handshake, and the queue cache interactions via grain filters and stream provider decorator injection, respectively.
-2. Observe the stream subscription process via interception and pre-emptively record the stream subscription as pending until it either completes its subscribing process in its entirety, the initial subscribing interaction fails, or the underlying consumer handshake fails.
+2. Observe the stream subscription process via interception and pre-emptively record the stream subscription as pending until it either completes the subscribing process in its entirety, the initial subscribing interaction fails, or the underlying consumer handshake fails.
 3. As events are added to the cache, if there's a current pending stream subscription in progress, create a "pinning" cursor in the cache to ensure the concurrently-received events are not evicted.
-4. When a stream susbcription completes its subscribing process, if a pinning cursor has been created during its lifetime, start the stream subscription from there to replay the concurrently-receieved events.
+4. When a stream susbcription completes its subscribing process, if a pinning cursor has indeed been created during its lifetime, start the stream subscription from there to replay the concurrently-received events.
 5. Ensure all failure cases clean up any pinning tokens and remove any in-flight data.
 
 ### Solution Pros
 1. No additional grain calls or other I/O latency.
-2. Using the native semantics of the caching and stream sequence token mechanisms.
-3. Zero overhead in sunny-day scenarios (no concurrent subscription/event publication).
+2. Zero changes required to application code, just drop-in replace the streaming provider.
+3. Uses the native semantics of the caching and stream sequence token mechanisms.
+4. Does not interfere with grain threading or scheduling models.
+5. Zero overhead in sunny-day scenarios (i.e. when there is no concurrent subscription/event publication).
 
 ### Solution Cons
 1. Requires reflection of the non-public QueueId property from the PersistentStreamPullingAgent.
@@ -51,17 +53,28 @@ We use two helper components:
 ## Fix Implemenation
 We intercept the streaming mechanism at two "sandwich layers" to ensure that events are not purged whilst pending subscriptions are in-flight.
 
-At the core of the solution, a shared mechanism to track pending stream subscriptions:
+The an in-flight subscription lifecycle is considered to be:
+1. Started on request to subscribe to the PersistentStreamPullingAgent.
+2. Completed when an initial cursor is requested for the subscription from the queue cache.
+3. Failed if the request to the PersistentStreamPullingAgent fails.
+4. Failed if the underlying handshake back to the consumer fails.
 
-1. `PendingStreamSubscriptionsManager` - Tracks pending stream subscriptions for a stream on a given queue. Designed to be hosted in-memory alongside a corresponding `PersistentStreamPullingAgent`.
+At the core of the solution, we use a shared mechanism to track pending stream subscriptions:
+
+1. `PendingStreamSubscriptionsManager` - Tracks pending stream subscriptions for a stream on a given queue. Designed to be hosted in-memory alongside each `PersistentStreamPullingAgent`.
 2. `PendingStreamSubscriptionsCoordinationService` - A service that allows the per-queue stream subscription managers to be retrieved globally for the local silo.
 
 On one side of the interception sandwich, we intercept the 'consumer subscription' layer to track subscription lifecycle and activity:
 
 1. `StreamSubscriptionIncomingGrainCallFilter` - Intercepts inbound requests into the `PersistentStreamPullingAgent`, registers the stream subscriber as pending, and cleans up on failure to subscribe. This mechanism also sets the invoked parameters on the Orleans request context so downstream interception components are able to resolve them.
-2. `ConsumerHandshakeOutgoingGrainCallFilter` - Intercepts the consumer handshake and cleans up any residual pending stream subscription data, using parameters flowed from the original stream request.
+2. `ConsumerHandshakeOutgoingGrainCallFilter` - Intercepts the consumer handshake and cleans up any residual pending stream subscription data if this process fails, using parameters flowed from the original stream request.
 
-On the other side of the interception sandwich, we intercept the streaming provider's 'state' layer (the cache) to identify subscription handshakes that have completed and ensure any newly received events are cached whilst current pending subscriptions are in flight:
+On the other side of the interception sandwich, we intercept the Persistent Pulling Stream Agent's 'state' layer (the queue cache) to:
+
+1. Ensure any newly received events are cached if there are current pending subscriptions are in flight, by creating artificial pinning cursors for each pending subscription.
+2. Identify when subscription handshakes complete successfully (i.e. when a queue cache cursor is being requested), and clean up any pinning cursors that may have been created if concurrent events have been received.
+
+We wrap an underlying stream provider queue caching mechanism and inject our interception logic:
 
 1. `ReliableStreamsQueueCache` - Wraps an underlying queue cache, notifying when events are received (in case pending subscriptions are in flight), and treating cursor requests as confirmation of stream subscription completion using parameters flowed from the initial stream subscription invocation.
 2. `ReliableStreamsQueueAdaptorCache` - Plugs in to the stream provider mechanism and creates the intercepting cache per-queue.
