@@ -53,7 +53,7 @@ We use two helper components:
 ## Fix Implemenation
 We intercept the streaming mechanism at two "sandwich layers" to ensure that events are not purged whilst pending subscriptions are in-flight.
 
-The an in-flight subscription lifecycle is considered to be:
+The in-flight subscription lifecycle is considered to be:
 1. Started on request to subscribe to the PersistentStreamPullingAgent.
 2. Completed when an initial cursor is requested for the subscription from the queue cache.
 3. Failed if the request to the PersistentStreamPullingAgent fails.
